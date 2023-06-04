@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net6.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="resources\Fonts\PressStart2P-Regular.ttf" />
+    <None Remove="resources\sounds\click.wav" />
+    <None Remove="resources\sounds\click_real.wav" />
+    <None Remove="resources\sounds\miss.wav" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="resources\Fonts\PressStart2P-Regular.ttf" />
+    <Resource Include="resources\sounds\click.wav" />
+    <Resource Include="resources\sounds\click_real.wav" />
+    <Resource Include="resources\sounds\miss.wav" />
+  </ItemGroup>
+
+</Project>
