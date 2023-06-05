@@ -1,162 +1,173 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Media;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
 using System.Windows.Shapes;
+
+/// ДАМЫ И ГОСПОДА, TODO
+/// 1. Собственное хранилище для TriggerDot
+/// 2. Сделать универсальный класс для элементов интерфейса
+/// 3. Переписать алгоритм отрисовки шестиугольников
+/// 4. Частицы при разрушении
+/// 5. Не сойти с ума
 
 namespace TriggerDiscipline
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    /// 
 
-
-    public class TriggerDot
-    {
-        public Polygon poly;
-        public Ellipse timeLeftCircle;
-        public Point center;
-        public int num = 0; // Хз зачем надо, мб потом пригодится
-        public int diam = 32;
-        public int timeLeft = 75;
-
-        public TriggerDot(Canvas canvas, Point centerPoint)
-        {
-            poly = new Polygon() { Stroke = new SolidColorBrush() { Color = Colors.White } };
-            timeLeftCircle = new() { Fill = new SolidColorBrush() { Color = Color.FromArgb(64, 255, 255, 255) } };
-            center = centerPoint;
-            Update(0);
-        }
-
-        public void Update(float angle)
-        {
-            double currDiam = (diam * 2) + diam * (timeLeft / 25d);
-            timeLeftCircle.Height = currDiam;
-            timeLeftCircle.Width = currDiam;
-            Canvas.SetTop(timeLeftCircle, center.Y - (currDiam / 2));
-            Canvas.SetLeft(timeLeftCircle, center.X - (currDiam / 2));
-
-            poly.Points.Clear();
-            for (int vertex = 0; vertex <= 6; vertex++)
-            {
-                poly.Points.Add(new(Math.Sin(vertex + (angle / 10)) * diam + center.X, Math.Cos(vertex + (angle / 10)) * diam + center.Y));
-            }
-            timeLeft--;
-        }
-
-        public bool isPointInRect(Point from) => from.DistanceTo(center) <= diam;
-    }
-
+    
     public static class Utility
     {
-        public static double DistanceTo(this Point from, Point to) => Math.Sqrt(Math.Pow(from.X - to.X, 2) - Math.Pow(from.Y - to.Y, 2));
+        public static double DistanceTo(this Point from, Point to)
+        {
+            double result = Math.Sqrt(Math.Pow(from.X - to.X, 2) - Math.Pow(from.Y - to.Y, 2) + 0.05);
+
+            // Костыль
+            if (result == double.NaN)
+            {
+                return 0;
+            }
+            return result;
+        }
 
     }
 
     public partial class MainWindow : Window
     {
-        public List<TriggerDot> dotsList = new();
-        SoundPlayer clickPlayer = new(Application.GetResourceStream(new Uri("/resources/sounds/click.wav", UriKind.Relative)).Stream);
-        SoundPlayer missPlayer = new(Application.GetResourceStream(new Uri("/resources/sounds/miss.wav", UriKind.Relative)).Stream);
+        public enum GameState
+        {
+            MENU,
+            GAME_LOOP,
+            GAME_END
+        }
+
+        public GameState state = GameState.GAME_LOOP;
+
+        //public EventManager fixedUpdate = new();
+
+        public static List<TriggerDot> dotsList = new();
+        private static Canvas canvasRef;
+
+        SoundManager manager = new();
         public long frameCounter = 0;
         public int score = 0;
         public double accuracy = 100;
         public int lives = 1000;
+
         Line timerLine;
+        CanvasMessageBox gameOverBox;
 
         public MainWindow()
         {
             InitializeComponent();
-            clickPlayer.Load();
-            missPlayer.Load();
+            canvasRef = MainCanvas;
+            MainCanvas.Children.Add(debugEl);
             Task.Factory.StartNew(GameLoop);
+        }
+
+        private void CreateDot()
+        {
+            if (dotsList.Count == 0)
+            {
+                var dot = new TriggerDot(new(rnd.Next(64, (int)Width - 64), rnd.Next(64, (int)Height - 64)));
+                MainCanvas.Children.Add(dot.poly);
+                MainCanvas.Children.Add(dot.timeLeftCircle);
+                dotsList.Add(dot);
+            }
         }
 
         Random rnd = new Random();
         public void GameLoop()
         {
             Stopwatch updateTimer = Stopwatch.StartNew();
-
+            
             Dispatcher.Invoke(() =>
             {
-                timerLine = new Line{ Stroke = new SolidColorBrush() { Color = Colors.White }, StrokeThickness = 15 };
+                gameOverBox = new(new(Width / 2, Height/2), new(200, 200));
+
+                
+                gameOverBox.state = IObject.ObjectState.OUTRO; // Сбрасываем состояние окна, чтобы изначально не отображалось
+                gameOverBox.Update();
+                MainCanvas.Children.Add(gameOverBox.boxRect);
+                foreach (CanvasButton btn in gameOverBox.buttons)
+                {
+                    MainCanvas.Children.Add(btn.buttonRect);
+                }
+
+                timerLine = new Line { Stroke = new SolidColorBrush() { Color = Colors.White }, StrokeThickness = 15 };
                 timerLine.X1 = 0;
                 timerLine.Y1 = 0;
                 timerLine.Y2 = 0;
                 timerLine.X2 = Width;
                 MainCanvas.Children.Add(timerLine);
             });
-           
+
+            // Main game loop
             while (true)
             {
-                if(updateTimer.ElapsedMilliseconds > 16)
+                // Fixed update
+                if (updateTimer.ElapsedMilliseconds > 16)
                 {
-
-                    if (dotsList.Count == 0)
-                    {
+                    if (state == GameState.GAME_LOOP) {
                         try
                         {
-                            Dispatcher.Invoke(() =>
-                        {
-                            var dot = new TriggerDot(MainCanvas, new(rnd.Next(64, (int)Width - 64), rnd.Next(64, (int)Height - 64)));
-                            MainCanvas.Children.Add(dot.poly);
-                            MainCanvas.Children.Add(dot.timeLeftCircle);
-                            dotsList.Add(dot);
-                        });
+                            Dispatcher.Invoke(CreateDot);
                         }
                         catch
                         {
                             // LOLOL
                         }
-                    }
 
-                    try
-                    {
-                        foreach (TriggerDot dot in dotsList)
+                        try
                         {
-                            try
+                            foreach (TriggerDot dot in dotsList)
                             {
-                                Dispatcher.Invoke(() => {
-                                    dot.Update(frameCounter % 360); // , Convert.ToUInt32((360 - frameCounter % 360)) / 4
-                                    timerLine.X2 = (Width / 1000) * lives; 
-                                    
-                                    if (dot.timeLeft <= 0)
+                                try
+                                {
+                                    Dispatcher.Invoke(() =>
                                     {
-                                        missPlayer.Play();
-                                        DestroyDot(dot);
-                                    }
-                                });
-                                
-                            }
-                            catch
-                            {
-                                // LOLOL
+                                        timerLine.X2 = (Width / 1000) * lives;
+                                        dot.Update();
+                                    });
+
+                                }
+                                catch
+                                {
+                                    // LOLOL
+                                }
                             }
                         }
-                    }catch (Exception e)
-                    {
-                        //
-                    }
-                    frameCounter++;
+                        catch (Exception e)
+                        {
+                            //
+                        }
+                        frameCounter++;
 
-                    lives -= 2;//* (int)(frameCounter / 500);
-                    
-                    if (lives <= 0)
+                        lives -= 2;
+
+                        if (lives <= 0)
+                        {
+                            state = GameState.GAME_END;
+                            gameOverBox.state = IObject.ObjectState.INTRO;
+                        }
+                    }
+
+                    if (state == GameState.GAME_END)
                     {
-                        MessageBox.Show($"Looser! Score: {score}");
-                        break;
+                        Dispatcher.Invoke(() =>
+                        {
+                            gameOverBox.Update();
+                            foreach (CanvasButton btn in gameOverBox.buttons)
+                            {
+                                btn.Update();
+                            }
+                        });
                     }
 
                     updateTimer.Restart();
@@ -164,33 +175,84 @@ namespace TriggerDiscipline
             }
         }
 
-        private void DestroyDot(TriggerDot dot)
+        public static void DestroyDot(TriggerDot dot)
         {
+            canvasRef.Children.Remove(dot.poly);
+            canvasRef.Children.Remove(dot.timeLeftCircle);
             dotsList.Remove(dot);
-            MainCanvas.Children.Remove(dot.poly);
-            MainCanvas.Children.Remove(dot.timeLeftCircle);
         }
 
         private void MainCanvas_MouseDown(object sender, MouseButtonEventArgs e)
         {
+            Point p = Mouse.GetPosition(MainCanvas);
+
             if (e.LeftButton == MouseButtonState.Pressed)
             {
-                Point p = Mouse.GetPosition(MainCanvas);
-                foreach (TriggerDot dot in dotsList)
+                
+                if (state == GameState.GAME_LOOP)
                 {
-                    if (dot.isPointInRect(p))
+                    foreach (TriggerDot dot in dotsList)
                     {
-                        //SystemSounds.Beep.Play();
-                        clickPlayer.Play();
-                        lives += 125;
-                        Score.Content = $"Score: {++score}";
-                        //accuracy = (accuracy + p.DistanceTo(dot.center) - dot.diam) / score;
-                        //Accuracy.Content = $"Acc.: {accuracy}";
-                        DestroyDot(dot);
-                        break;
+                        if (dot.isPointInRect(p))
+                        {
+                            //SystemSounds.Beep.Play();
+                            manager.clickPlayer.Play();
+                            lives += 125;
+                            Score.Content = $"Score: {++score}";
+                            //accuracy = (accuracy + p.DistanceTo(dot.center) - dot.diam) / score;
+                            //Accuracy.Content = $"Acc.: {accuracy}";
+                            dot.state = IObject.ObjectState.OUTRO;
+                            break;
+                        }
+                    }
+                }
+                if (state == GameState.GAME_END)
+                {
+                    foreach (CanvasButton button in gameOverBox.buttons)
+                    {
+                        if (button.Click(p))
+                        {
+                            gameOverBox.state = IObject.ObjectState.OUTRO;
+                            gameOverBox.Update();
+                            manager.clickPlayer.Play();
+                            RestartGame();
+                        }
                     }
                 }
             }
+        }
+
+
+        // DEBUG
+        Ellipse debugEl = new() { Fill = new SolidColorBrush() { Color = Colors.Red }, Width = 5, Height = 5 };
+
+        private void MainCanvas_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            
+            Point p = Mouse.GetPosition(MainCanvas);
+            Canvas.SetTop(debugEl, p.Y - 2.5);
+            Canvas.SetLeft(debugEl, p.X - 2.5);
+            Canvas.SetZIndex(debugEl, 100);
+            if (state == GameState.GAME_END)
+            {
+                foreach (CanvasButton button in gameOverBox.buttons)
+                {
+                    button.hovered = button.Click(p);
+                }
+            }
+        }
+
+        private void RestartGame()
+        {
+            foreach (TriggerDot dot in dotsList)
+            {
+                MainCanvas.Children.Remove(dot.poly);
+                MainCanvas.Children.Remove(dot.timeLeftCircle);
+            }
+            dotsList.Clear();
+            score = 0;
+            lives = 1000;
+            state = GameState.GAME_LOOP;
         }
     }
 }
