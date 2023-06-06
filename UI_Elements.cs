@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using System.Xml.Linq;
 
 namespace TriggerDiscipline
 {
@@ -12,6 +14,8 @@ namespace TriggerDiscipline
         public float[] flyoutFrames = new float[16];
         public SolidColorBrush fillBrush = new() { Color = Colors.Black };
         public readonly SolidColorBrush strokeBrush = new() { Color = Colors.White };
+
+        public List<GenericInterfaceElement> children = new();
 
         public Action? onClick;
         public enum ElementState
@@ -22,7 +26,7 @@ namespace TriggerDiscipline
             PRESSED,
             RELEASED
         }
-        public ElementState currentState = ElementState.INIT;
+        public ElementState currentState = ElementState.RELEASED;
 
         public Point elementCenter;
         public int height;
@@ -89,7 +93,7 @@ namespace TriggerDiscipline
                     else
                     {
                         currentState = ElementState.NORMAL;
-                    }                     
+                    }
                     break;
             }
         }
@@ -98,21 +102,49 @@ namespace TriggerDiscipline
 
         public abstract void Update();
 
-        public abstract void ShowElement();
+        public abstract void Destroy();
 
-        public abstract void HideElement();
+        public void HideElement()
+        {
+            foreach (GenericInterfaceElement child in children)
+            {
+                child.HideElement();
+            }
+            currentState = ElementState.PRESSED;
+        }
+
+        public void ShowElement()
+        {
+            animationCounter = 0;
+            foreach (GenericInterfaceElement child in children)
+            {
+                child.ShowElement();
+            }
+            currentState = ElementState.INIT;
+        }
     }
 
     public class Dialog : GenericInterfaceElement
     {
-        public Rectangle rect = new();
+        public Rectangle rect = new() { Stroke = new SolidColorBrush() { Color = Colors.White }, Fill = new SolidColorBrush() { Color = Colors.Black } };
+
         public Dialog(Point center, int w, int h) : base(center, w, h)
         {
             rect.Height = h;
             rect.Width = w;
             MainWindow.canvasRef.Children.Add(rect);
-            Canvas.SetTop(rect, center.X);
-            Canvas.SetLeft(rect, center.Y);
+        }
+
+        public override void Destroy()
+        {
+            foreach (GenericInterfaceElement child in children)
+            {
+                if (child.GetType() == typeof(Button))
+                {
+                    child.Destroy();
+                }
+            }
+            MainWindow.canvasRef.Children.Remove(rect);
         }
 
         public override void FixedUpdate()
@@ -120,210 +152,96 @@ namespace TriggerDiscipline
             throw new NotImplementedException();
         }
 
-        public override void HideElement()
-        {
-            currentState = ElementState.PRESSED;
-            //rect.Visibility = Visibility.Hidden;
-        }
-
-        public override void ShowElement()
-        {
-            animationCounter = 0;
-            currentState = ElementState.INIT;
-            //rect.Visibility = Visibility.Visible;
-        }
-
         public override void Update()
         {
             AnimationUpdate();
+            foreach (GenericInterfaceElement child in children)
+            {
+                child.Update();
+            }
+
             if (currentState == ElementState.INIT || currentState == ElementState.RELEASED)
+            {
+                Point scaledCenter = (Point)(elementCenter - elementCenter.Scale(flyoutFrames[animationCounter]));
+                Canvas.SetTop(rect, scaledCenter.X);
+                Canvas.SetLeft(rect, scaledCenter.Y);
                 rect.Width = flyoutFrames[animationCounter] * width;
                 rect.Height = flyoutFrames[animationCounter] * height;
-            //fillBrush.Color = Color.FromArgb(Convert.ToByte(animationCounter), 255, 255, 255);
+            }
+            else
+            {
+                rect.Width = width;
+                rect.Height = height;
+            }
         }
     }
 
+    /// <summary>
+    /// Кнопка
+    /// </summary>
     public class Button : GenericInterfaceElement
     {
-        public Rectangle rect = new();
-        public Button(Point center, int w, int h) : base(center, w, h)
+        public Rectangle rect = new() { Stroke = new SolidColorBrush() { Color = Colors.White }, Fill = new SolidColorBrush() { Color = Colors.Black } };
+        public List<GenericInterfaceElement> elements = new();
+        public Label caption;
+        public Point parentPoint;
+        public Button(Point center, int w, int h, Point parent = new()) : base(center, w, h)
         {
+            parentPoint = parent;
+            rect.Height = h;
+            rect.Width = w;
             MainWindow.canvasRef.Children.Add(rect);
-            Canvas.SetTop(rect, center.X);
-            Canvas.SetLeft(rect, center.Y);
+            caption = new Label();
+            caption.Content = "Restart?";
+            caption.Height = h;
+            caption.Width = w;
+            MainWindow.canvasRef.Children.Add(caption);
+
+            
         }
 
         public override void FixedUpdate()
         {
-            throw new NotImplementedException();
+
         }
 
-        public override void HideElement()
+        public override void Destroy()
         {
-            currentState = ElementState.PRESSED;
-            //rect.Visibility = Visibility.Hidden;
+            foreach (GenericInterfaceElement child in children)
+            {
+                if (child.GetType() == typeof(Button))
+                {
+                    child.Destroy();
+                }
+            }
+            MainWindow.canvasRef.Children.Remove(rect);
         }
 
-        public override void ShowElement()
-        {
-            animationCounter = 0;
-            currentState = ElementState.INIT;
-            
-            //rect.Visibility = Visibility.Visible;
-        }
 
         public override void Update()
         {
             AnimationUpdate();
+            foreach (GenericInterfaceElement element in elements)
+            {
+                element.Update();
+            }
             if (currentState == ElementState.INIT || currentState == ElementState.RELEASED)
-                rect.Width = flyoutFrames[animationCounter];
-            //fillBrush.Color = Color.FromArgb(Convert.ToByte(animationCounter), 255, 255, 255);
+            {
+                float targetW = flyoutFrames[animationCounter] * width;
+                float targetH = flyoutFrames[animationCounter] * height; 
+                Point scaledCenter = (Point)(elementCenter - new Point(targetH / 2, targetW / 2));
+                scaledCenter = scaledCenter.Sum(parentPoint);
+                Canvas.SetTop(rect, scaledCenter.X);
+                Canvas.SetLeft(rect, scaledCenter.Y);
+                Canvas.SetTop(caption, scaledCenter.X);
+                Canvas.SetLeft(caption, scaledCenter.Y);
+                rect.Width = targetW;
+                rect.Height = targetH;
+            }
+            if (currentState == ElementState.HOVERED || currentState == ElementState.NORMAL)
+            {
+                fillBrush.Color = Color.FromArgb(Convert.ToByte(animationCounter), 255, 255, 255);
+            }
         }
     }
-
-    /*
-
-public class Gene : GenericInterfaceElement
-{
-    public bool hovered = false;
-
-
-
-    public Rectangle buttonRect;
-
-    private int animCounter = 0;
-
-    public CanvasButton(Point center, int w, int h) : base(center, w, h)
-    {
-        buttonRect = new Rectangle() { Fill = fillBrush, Stroke = new SolidColorBrush() { Color = Colors.White } };
-        Canvas.SetTop(buttonRect, elementCenter.Y - width / 2);
-        Canvas.SetLeft(buttonRect, elementCenter.X - height / 2);
-    }
-
-    public override void Compute()
-    {
-        if (hovered)
-        {
-            animCounter += animCounter < 250 ? 25 : 0;
-        }
-        else
-        {
-            animCounter -= animCounter > 0 ? 25 : 0;
-        }
-    }
-
-
-    public void Outro()
-    {
-        buttonRect.Width = 0;
-        buttonRect.Height = 0;
-    }
-
-    public void Update()
-    {
-        switch (state)
-        {
-            case IObject.ObjectState.INTRO:
-                Intro();
-                break;
-            case IObject.ObjectState.LOOP:
-
-
-                fillBrush.Color = Color.FromArgb(Convert.ToByte(animCounter), 255, 255, 255);
-                break;
-            case IObject.ObjectState.OUTRO:
-                Outro();
-                break;
-        }
-    }
-
-    public void Compute()
-    {
-        throw new NotImplementedException();
-    }
-}
-
-public class CanvasMessageBox : IObject
-{
-    public Rectangle boxRect;
-    public Point center;
-    public Point targetSize;
-    public double proportionFac;
-
-    public List<CanvasButton> buttons = new List<CanvasButton>();
-
-    public IObject.ObjectState state = IObject.ObjectState.INTRO;
-    private int animCounter = 0;
-
-    public CanvasMessageBox(Point centerPoint, Point dialogScale)
-    {
-        boxRect = new Rectangle() { Stroke = new SolidColorBrush { Color = Colors.White }, Fill = new SolidColorBrush { Color = Colors.DarkSlateGray } };
-        targetSize = dialogScale;
-        center = centerPoint;
-
-        // Test button
-        buttons.Add(new CanvasButton(centerPoint, new(50, 25)));
-
-        //proportionFac = dialogScale.X / dialogScale.Y;
-    }
-
-    public void Compute()
-    {
-        throw new NotImplementedException();
-    }
-
-    public void Intro()
-    {
-        //if (animCounter <= 64)
-        //{
-        //polyBrush.Color = Color.FromArgb(Convert.ToByte((frame - intro_animation_end) * -25.5), 255, 255, 255);
-
-        //UpdateAnimation(animCounter % 360);
-        //}
-        //else
-        //{
-        boxRect.Width = targetSize.Y;
-        boxRect.Height = targetSize.X;
-        state = IObject.ObjectState.LOOP;
-        foreach (CanvasButton btn in buttons)
-        {
-            btn.state = IObject.ObjectState.INTRO;
-            btn.Update();
-        }
-        //}
-    }
-
-    public void Outro()
-    {
-        boxRect.Width = 0;
-        boxRect.Height = 0;
-
-        foreach (CanvasButton btn in buttons)
-        {
-            btn.state = IObject.ObjectState.OUTRO;
-            btn.Update();
-        }
-    }
-
-    public void Update()
-    {
-        switch (state)
-        {
-            case IObject.ObjectState.INTRO:
-                Intro();
-                break;
-            case IObject.ObjectState.LOOP:
-                //UpdateAnimation(animCounter % 360);
-                Canvas.SetTop(boxRect, center.Y - targetSize.Y / 2);
-                Canvas.SetLeft(boxRect, center.X - targetSize.X / 2);
-                break;
-            case IObject.ObjectState.OUTRO:
-                Outro();
-                break;
-        }
-
-        animCounter++;
-    }
-}*/
-
 }

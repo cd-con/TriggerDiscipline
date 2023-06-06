@@ -77,10 +77,17 @@ namespace TriggerDiscipline
             // Добaвляем
             if (dotStorage.Count < difficulty)
             {
-                TriggerDot newDot = new(this, new(App.globalRandom.Next(100, (int)MainWindow.windowSize.Y - 100), App.globalRandom.Next(100, (int)MainWindow.windowSize.X - 100)));
-                MainWindow.canvasRef.Children.Add(newDot.poly);
-                MainWindow.canvasRef.Children.Add(newDot.timeLeftCircle);
-                dotStorage.Add(newDot);
+                try
+                {
+                    TriggerDot newDot = new(this, new(App.globalRandom.Next(100, (int)MainWindow.windowSize.Y - 100), App.globalRandom.Next(100, (int)MainWindow.windowSize.X - 100)));
+                    MainWindow.canvasRef.Children.Add(newDot.poly);
+                    MainWindow.canvasRef.Children.Add(newDot.timeLeftCircle);
+                    dotStorage.Add(newDot);
+                }catch (ArgumentOutOfRangeException)
+                {
+                    MessageBox.Show("Trying to cheat?");
+                    
+                }
             }
 
             foreach (TriggerDot dot in dotStorage)
@@ -151,8 +158,6 @@ namespace TriggerDiscipline
             center = position;
             poly = new() { Stroke = polyBrush };
             timeLeftCircle = new() { Fill = circleBrush };
-            
-
         }
 
         public void Compute()

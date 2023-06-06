@@ -66,7 +66,24 @@ namespace TriggerDiscipline
                 windowSize.X = e.NewSize.Height;
                 windowSize.Y = e.NewSize.Width;
             });
+
             Task.Factory.StartNew(GameLoop);
+        }
+
+        public void Setup()
+        {
+            newGameOver = new Dialog(new(windowSize.X / 8, windowSize.Y / 8), 100, 100);
+            Button restart = new Button(new(25, 0), 100, 50);
+            restart.onClick = RestartGame;
+            newGameOver.children.Add(restart);
+            newGameOver.Update();
+
+            timerLine = new Line { Stroke = new SolidColorBrush() { Color = Colors.White }, StrokeThickness = 15 };
+            timerLine.X1 = 0;
+            timerLine.Y1 = 0;
+            timerLine.Y2 = 0;
+            timerLine.X2 = Width;
+            MainCanvas.Children.Add(timerLine);
         }
 
         public void GameLoop()
@@ -80,25 +97,7 @@ namespace TriggerDiscipline
                 Score.Content = $"Score: {++score}";
             };
 
-            Dispatcher.Invoke(() =>
-            {
-                /*gameOverBox = new(, new(200, 200));
-
-                gameOverBox.state = IObject.ObjectState.OUTRO; // Сбрасываем состояние окна, чтобы изначально не отображалось
-                gameOverBox.Update();
-                MainCanvas.Children.Add(gameOverBox.boxRect);
-                foreach (CanvasButton btn in gameOverBox.buttons)
-                {
-                    MainCanvas.Children.Add(btn.buttonRect);
-                }*/
-
-                timerLine = new Line { Stroke = new SolidColorBrush() { Color = Colors.White }, StrokeThickness = 15 };
-                timerLine.X1 = 0;
-                timerLine.Y1 = 0;
-                timerLine.Y2 = 0;
-                timerLine.X2 = Width;
-                MainCanvas.Children.Add(timerLine);
-            });
+            Dispatcher.Invoke(Setup);
 
             // Main game loop
             while (true)
@@ -119,8 +118,6 @@ namespace TriggerDiscipline
 
                                 if (lives <= 0)
                                 {
-
-                                    newGameOver = new Dialog(new(windowSize.Y / 2, windowSize.X / 2), 200, 200);
                                     newGameOver.ShowElement();
                                     state = GameState.GAME_END;
                                 }
@@ -131,13 +128,18 @@ namespace TriggerDiscipline
                         {
                             Dispatcher.Invoke(() =>
                             {
-                                newGameOver?.Update();
-                                //gameOverBox.center = new(windowSize.Y / 2, windowSize.X / 2);
-                                //gameOverBox.Update();
-                                /*foreach (CanvasButton btn in gameOverBox.buttons)
+                                newGameOver.elementCenter = new(windowSize.X / 2, windowSize.Y / 2);
+
+                                foreach (GenericInterfaceElement element in newGameOver.children)
                                 {
-                                    btn.Update();
-                                }*/
+                                    // Час ночи, а я всё пишу...
+                                    var x = element as Button;
+                                    x.parentPoint = newGameOver.elementCenter;
+                                }
+                                
+                                newGameOver.width = (int)windowSize.Y - 70;
+                                newGameOver.height = (int)windowSize.X - 70;
+                                newGameOver.Update();
                             });
                         }
 
@@ -166,17 +168,13 @@ namespace TriggerDiscipline
                 }
                 if (state == GameState.GAME_END)
                 {
-                    /*foreach (CanvasButton button in gameOverBox.buttons)
+                    foreach (GenericInterfaceElement element in newGameOver.children)
                     {
-                        
-                        if (button.Click(p))
+                        if (element.GetType() == typeof(Button))
                         {
-                            gameOverBox.state = IObject.ObjectState.OUTRO;
-                            gameOverBox.Update();
-                            manager.clickPlayer.Play();
-                            RestartGame();
+                            element.InteractionHandler(p, true);
                         }
-                    }*/
+                    }
                 }
             }
         }
@@ -194,10 +192,13 @@ namespace TriggerDiscipline
             Canvas.SetZIndex(debugEl, 100);
             if (state == GameState.GAME_END)
             {
-                /*foreach (CanvasButton button in gameOverBox.buttons)
+                foreach (GenericInterfaceElement element in newGameOver.children)
                 {
-                    button.hovered = button.Click(p);
-                }*/
+                    if (element.GetType() == typeof(Button))
+                    {
+                        element.InteractionHandler(p);
+                    }
+                }
             }
         }
 
