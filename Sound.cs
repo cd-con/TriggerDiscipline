@@ -8,6 +8,7 @@ namespace TriggerDiscipline
     {
         public SoundPlayer clickPlayer = new(Application.GetResourceStream(new Uri("/resources/sounds/click.wav", UriKind.Relative)).Stream);
         public SoundPlayer missPlayer = new(Application.GetResourceStream(new Uri("/resources/sounds/miss.wav", UriKind.Relative)).Stream);
+        //public SoundPlayer selectPlayer;
         public static SoundManager instance;
         public SoundManager()
         {

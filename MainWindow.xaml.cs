@@ -21,22 +21,6 @@ namespace TriggerDiscipline
     /// Interaction logic for MainWindow.xaml
     /// </summary>
 
-    
-    public static class Utility
-    {
-        public static double DistanceTo(this Point from, Point to)
-        {
-            double result = Math.Sqrt(Math.Pow(from.X - to.X, 2) - Math.Pow(from.Y - to.Y, 2) + 0.05);
-
-            // Костыль
-            if (result == double.NaN)
-            {
-                return 0;
-            }
-            return result;
-        }
-
-    }
 
     public partial class MainWindow : Window
     {
@@ -50,11 +34,14 @@ namespace TriggerDiscipline
         public GameState state = GameState.GAME_LOOP;
 
         //public EventManager fixedUpdate = new();
+        public static Point windowSize;
 
-        public static List<TriggerDot> dotsList = new();
-        private static Canvas canvasRef;
+        public static Canvas canvasRef;
+        public static Label debuggerRef;
 
         SoundManager manager = new();
+        TriggerDotController dotCtrl = new();
+
         public long frameCounter = 0;
         public int score = 0;
         public double accuracy = 100;
@@ -66,32 +53,36 @@ namespace TriggerDiscipline
         public MainWindow()
         {
             InitializeComponent();
+
             canvasRef = MainCanvas;
+            debuggerRef = Accuracy;
+
             MainCanvas.Children.Add(debugEl);
+
+            windowSize = new(Height, Width);
+            SizeChanged += ((object sender, SizeChangedEventArgs e) =>
+            {
+                windowSize.X = e.NewSize.Height;
+                windowSize.Y = e.NewSize.Width;
+            });
             Task.Factory.StartNew(GameLoop);
         }
 
-        private void CreateDot()
-        {
-            if (dotsList.Count == 0)
-            {
-                var dot = new TriggerDot(new(rnd.Next(64, (int)Width - 64), rnd.Next(64, (int)Height - 64)));
-                MainCanvas.Children.Add(dot.poly);
-                MainCanvas.Children.Add(dot.timeLeftCircle);
-                dotsList.Add(dot);
-            }
-        }
-
-        Random rnd = new Random();
         public void GameLoop()
         {
             Stopwatch updateTimer = Stopwatch.StartNew();
-            
+
+            dotCtrl.clickSuccseedAction = () =>
+            {
+                lives += lives < 1000 ? 125 - (dotCtrl.difficulty * 5) : 0;
+                manager.clickPlayer.Play();
+                Score.Content = $"Score: {++score}";
+            };
+
             Dispatcher.Invoke(() =>
             {
-                gameOverBox = new(new(Width / 2, Height/2), new(200, 200));
+                gameOverBox = new(new(windowSize.Y / 2, windowSize.X / 2), new(200, 200));
 
-                
                 gameOverBox.state = IObject.ObjectState.OUTRO; // Сбрасываем состояние окна, чтобы изначально не отображалось
                 gameOverBox.Update();
                 MainCanvas.Children.Add(gameOverBox.boxRect);
@@ -111,75 +102,49 @@ namespace TriggerDiscipline
             // Main game loop
             while (true)
             {
-                // Fixed update
-                if (updateTimer.ElapsedMilliseconds > 16)
+                try
                 {
-                    if (state == GameState.GAME_LOOP) {
-                        try
-                        {
-                            Dispatcher.Invoke(CreateDot);
-                        }
-                        catch
-                        {
-                            // LOLOL
-                        }
-
-                        try
-                        {
-                            foreach (TriggerDot dot in dotsList)
-                            {
-                                try
-                                {
-                                    Dispatcher.Invoke(() =>
-                                    {
-                                        timerLine.X2 = (Width / 1000) * lives;
-                                        dot.Update();
-                                    });
-
-                                }
-                                catch
-                                {
-                                    // LOLOL
-                                }
-                            }
-                        }
-                        catch (Exception e)
-                        {
-                            //
-                        }
-                        frameCounter++;
-
-                        lives -= 2;
-
-                        if (lives <= 0)
-                        {
-                            state = GameState.GAME_END;
-                            gameOverBox.state = IObject.ObjectState.INTRO;
-                        }
-                    }
-
-                    if (state == GameState.GAME_END)
+                    // Fixed update
+                    if (updateTimer.ElapsedMilliseconds > 16)
                     {
-                        Dispatcher.Invoke(() =>
+                        if (state == GameState.GAME_LOOP)
                         {
-                            gameOverBox.Update();
-                            foreach (CanvasButton btn in gameOverBox.buttons)
+                            Dispatcher.Invoke(() =>
                             {
-                                btn.Update();
-                            }
-                        });
-                    }
+                                timerLine.X2 = (windowSize.Y / 1000) * lives;
+                                dotCtrl.Update();
+                                lives -= 2 * dotCtrl.difficulty;
 
-                    updateTimer.Restart();
+                                if (lives <= 0)
+                                {
+                                    state = GameState.GAME_END;
+                                    gameOverBox.state = IObject.ObjectState.INTRO;
+                                }
+                            });
+                        }
+
+                        if (state == GameState.GAME_END)
+                        {
+                            Dispatcher.Invoke(() =>
+                            {
+                                gameOverBox.center = new(windowSize.Y / 2, windowSize.X / 2);
+                                gameOverBox.Update();
+                                foreach (CanvasButton btn in gameOverBox.buttons)
+                                {
+                                    btn.Update();
+                                }
+                            });
+                        }
+
+                        updateTimer.Restart();
+                    }
+                }
+                // Ловим отмену задачи, чтобы многократно не тыкать в отладчике
+                catch (TaskCanceledException)
+                {
+                    break;
                 }
             }
-        }
-
-        public static void DestroyDot(TriggerDot dot)
-        {
-            canvasRef.Children.Remove(dot.poly);
-            canvasRef.Children.Remove(dot.timeLeftCircle);
-            dotsList.Remove(dot);
         }
 
         private void MainCanvas_MouseDown(object sender, MouseButtonEventArgs e)
@@ -188,23 +153,9 @@ namespace TriggerDiscipline
 
             if (e.LeftButton == MouseButtonState.Pressed)
             {
-                
                 if (state == GameState.GAME_LOOP)
                 {
-                    foreach (TriggerDot dot in dotsList)
-                    {
-                        if (dot.isPointInRect(p))
-                        {
-                            //SystemSounds.Beep.Play();
-                            manager.clickPlayer.Play();
-                            lives += 125;
-                            Score.Content = $"Score: {++score}";
-                            //accuracy = (accuracy + p.DistanceTo(dot.center) - dot.diam) / score;
-                            //Accuracy.Content = $"Acc.: {accuracy}";
-                            dot.state = IObject.ObjectState.OUTRO;
-                            break;
-                        }
-                    }
+                    dotCtrl.Click(p);
                 }
                 if (state == GameState.GAME_END)
                 {
@@ -228,7 +179,7 @@ namespace TriggerDiscipline
 
         private void MainCanvas_PreviewMouseMove(object sender, MouseEventArgs e)
         {
-            
+
             Point p = Mouse.GetPosition(MainCanvas);
             Canvas.SetTop(debugEl, p.Y - 2.5);
             Canvas.SetLeft(debugEl, p.X - 2.5);
@@ -244,12 +195,9 @@ namespace TriggerDiscipline
 
         private void RestartGame()
         {
-            foreach (TriggerDot dot in dotsList)
-            {
-                MainCanvas.Children.Remove(dot.poly);
-                MainCanvas.Children.Remove(dot.timeLeftCircle);
-            }
-            dotsList.Clear();
+            dotCtrl.Clear();
+            dotCtrl.difficulty = 1;
+            dotCtrl.frameCounter = 0;
             score = 0;
             lives = 1000;
             state = GameState.GAME_LOOP;

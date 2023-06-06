@@ -13,5 +13,6 @@ namespace TriggerDiscipline
     /// </summary>
     public partial class App : Application
     {
+        public static Random globalRandom = new();
     }
 }

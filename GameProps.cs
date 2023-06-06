@@ -1,95 +1,183 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Media3D;
 using System.Windows.Shapes;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace TriggerDiscipline
 {
-    public class TriggerDot : IObject
+    public class TriggerDotController : IObject
     {
-        public Polygon poly;
-        public Ellipse timeLeftCircle;
-        public Point center;
+        public int frameCounter;
+        public List<TriggerDot> dotStorage = new List<TriggerDot>();
+        public List<TriggerDot> deathQueue = new List<TriggerDot>();
+        public List<Point> clickQueue = new List<Point>();
 
-        public int diam = 32;
-        public int timeLeft = 107;
+        public Action clickSuccseedAction;
 
-        private SolidColorBrush polyBrush = new() { Color = Colors.White };
-        private SolidColorBrush circleBrush = new() { Color = Color.FromArgb(64, 255, 255, 255) };
+        public int difficulty = 1;
 
-        public IObject.ObjectState state = IObject.ObjectState.INTRO;
-        private int animCounter = 0;
-
-        public TriggerDot(Point centerPoint)
+        public TriggerDotController()
         {
-            poly = new Polygon() { Stroke = polyBrush };
-            timeLeftCircle = new() { Fill = circleBrush };
-            center = centerPoint;
-            UpdateAnimation(0);
+            Compute();
         }
 
-
-        public void Intro()
+        private PointCollection[] introAnimation = new PointCollection[32]; 
+        private PointCollection[] loopAnimation = new PointCollection[360];
+        // Реализовано через систему частиц
+        // private PointCollection[] outroAnimation = new PointCollection[360];
+        public void Compute()
         {
-            if (animCounter <= 32)
+            // Запекаем анимациию появления
+            for (int introFrame = 0; introFrame < introAnimation.Length; introFrame++)
             {
-                //polyBrush.Color = Color.FromArgb(Convert.ToByte((frame - intro_animation_end) * -25.5), 255, 255, 255);
-                diam = (animCounter);
-                UpdateAnimation(animCounter % 360);
+                introAnimation[introFrame] = BakeFrame(introFrame,  (32 / introAnimation.Length) * introFrame);
             }
-            else
+
+            // Запекаем анимацию вращения
+            for (int loopFrame = 0; loopFrame < loopAnimation.Length; loopFrame++)
             {
-                state = IObject.ObjectState.LOOP;
+                loopAnimation[loopFrame] = BakeFrame(loopFrame, 32);
             }
+
+            // Обнуляем глобальный таймер анимациий после генерации кадров
+            frameCounter = 0;
         }
 
         public void Update()
         {
-            switch (state)
+            // Нажимаем
+            foreach (Point clickPoint in clickQueue)
             {
-                case IObject.ObjectState.INTRO:
-                    Intro();
-                    break;
-                case IObject.ObjectState.LOOP:
-                    UpdateAnimation(animCounter % 360);
-                    break;
-                case IObject.ObjectState.OUTRO:
-                    Outro();
-                    break;
+                foreach (TriggerDot dot in dotStorage)
+                {
+                    MainWindow.debuggerRef.Content = clickPoint.DistanceTo(dot.center);
+                    if (clickPoint.isInCircle(dot.center, 900))
+                    {
+                        deathQueue.Add(dot);
+
+                        if (clickSuccseedAction != null)
+                            clickSuccseedAction.Invoke();
+                    }
+                }
+            }
+            clickQueue.Clear();
+
+            // Удаляем
+            if (deathQueue.Count > 0)
+            {
+                dotStorage = dotStorage.Except(deathQueue).ToList();
+
+                foreach (TriggerDot dot in deathQueue)
+                {
+                    MainWindow.canvasRef.Children.Remove(dot.poly);
+                    MainWindow.canvasRef.Children.Remove(dot.timeLeftCircle);
+                }
+                
+                deathQueue.Clear();
             }
 
-            animCounter++;
-        }
-        public void Outro()
-        {
-            // Suicide
-            MainWindow.DestroyDot(this);
+            // Добaвляем
+            if (dotStorage.Count < difficulty)
+            {
+                TriggerDot newDot = new(this, new(App.globalRandom.Next(100, (int)MainWindow.windowSize.Y - 100), App.globalRandom.Next(100, (int)MainWindow.windowSize.X - 100)));
+                MainWindow.canvasRef.Children.Add(newDot.poly);
+                MainWindow.canvasRef.Children.Add(newDot.timeLeftCircle);
+                dotStorage.Add(newDot);
+            }
+
+            foreach (TriggerDot dot in dotStorage)
+            {
+                dot.Update();
+            }
+
+            difficulty = (int)(frameCounter / 500f) + 1;
+
+            frameCounter++;
         }
 
-        private void UpdateAnimation(float angle)
+        public void Destroy(TriggerDot dot)
         {
-            double currDiam = (diam * 2) + diam * (timeLeft / 32d);
+            deathQueue.Add(dot);
+        }
+
+        public void Click(Point clickPoint)
+        {
+            clickQueue.Add(clickPoint);
+        }
+
+        public void Clear()
+        {
+            deathQueue = dotStorage;
+        }
+
+        private PointCollection BakeFrame(float angle, float diam)
+        {
+            PointCollection frame = new PointCollection();
+
+            for (int vertex = 0; vertex <= 6; vertex++)
+            {
+                frame.Add(new(Math.Sin(vertex + (angle / 10)) * diam, Math.Cos(vertex + (angle / 10)) * diam));
+            }
+
+            return frame;
+        }
+
+        public PointCollection GetFrame(int frame)
+        {
+            return frame < 32 ? introAnimation[frame] : loopAnimation[frame % loopAnimation.Length];
+        }
+    }
+
+    public class TriggerDot : IObject
+    {
+        private TriggerDotController parent;
+        public Polygon poly;
+        public Ellipse timeLeftCircle;
+        public Point center;
+
+        private int timeLeftInit = 107;
+        public int timeLeft;
+        
+        private SolidColorBrush polyBrush = new() { Color = Colors.White };
+        private SolidColorBrush circleBrush = new() { Color = Color.FromArgb(64, 255, 255, 255) };
+
+        public TriggerDot(TriggerDotController storageReference, Point position) {
+            parent = storageReference;
+            timeLeft = timeLeftInit;
+            center = position;
+            poly = new() { Stroke = polyBrush };
+            timeLeftCircle = new() { Fill = circleBrush };
+            
+
+        }
+
+        public void Compute()
+        {
+            // No computing today
+        }
+
+        public void Update()
+        {
+            poly.Points = parent.GetFrame(timeLeftInit - timeLeft).ShiftSum(center);
+
+            double currDiam = (32 * 2) + 32 * (timeLeft / 32d);
             timeLeftCircle.Height = currDiam;
             timeLeftCircle.Width = currDiam;
             Canvas.SetTop(timeLeftCircle, center.Y - (currDiam / 2));
             Canvas.SetLeft(timeLeftCircle, center.X - (currDiam / 2));
 
-            poly.Points.Clear();
-            for (int vertex = 0; vertex <= 6; vertex++)
-            {
-                poly.Points.Add(new(Math.Sin(vertex + (angle / 10)) * diam + center.X, Math.Cos(vertex + (angle / 10)) * diam + center.Y));
-            }
+            timeLeft--;
 
             if (timeLeft == 0)
             {
                 SoundManager.instance.missPlayer.Play();
-                state = IObject.ObjectState.OUTRO;
+                parent.Destroy(this);
             }
-
-            timeLeft--;
         }
-
-        public bool isPointInRect(Point from) => from.DistanceTo(center) <= diam;
     }
 }

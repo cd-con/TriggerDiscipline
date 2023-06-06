@@ -11,7 +11,7 @@
         <Canvas x:Name="MainCanvas" MouseDown="MainCanvas_MouseDown" PreviewMouseMove="MainCanvas_PreviewMouseMove" Background="#FF000005">
             <Grid IsHitTestVisible="False">
                 <Label x:Name="Score" FontFamily="#./Resources/Fonts/#Press Start 2P" Content="Score: 0" Foreground="White" FontSize="36"/>
-                <!--<Label x:Name="Accuracy" FontFamily="#./Resources/Fonts/#Press Start 2P" Content="Acc.: 100%" Foreground="White" FontSize="18" Margin="0,32,0,-34"/>-->
+                <Label x:Name="Accuracy" FontFamily="#./Resources/Fonts/#Press Start 2P" Content="Acc.: 100%" Foreground="White" FontSize="18" Margin="0,32,0,-34"/>
             </Grid>
         </Canvas>
     </Grid>

@@ -83,6 +83,11 @@ namespace TriggerDiscipline
             // Pi*dec
             return (clickPoint.Y > topLeft.Y && clickPoint.Y < bottomRight.Y) && (clickPoint.X > topLeft.X && clickPoint.X < bottomRight.X);
         }
+
+        public void Compute()
+        {
+            throw new NotImplementedException();
+        }
     }
 
     public class CanvasMessageBox : IObject
@@ -100,9 +105,8 @@ namespace TriggerDiscipline
         public CanvasMessageBox(Point centerPoint, Point dialogScale)
         {
             boxRect = new Rectangle() { Stroke = new SolidColorBrush { Color = Colors.White }, Fill = new SolidColorBrush { Color = Colors.DarkSlateGray } };
-            Canvas.SetTop(boxRect, centerPoint.Y - dialogScale.Y / 2);
-            Canvas.SetLeft(boxRect, centerPoint.X - dialogScale.X / 2);
             targetSize = dialogScale;
+            center = centerPoint;
 
             // Test button
             buttons.Add(new CanvasButton(centerPoint, new(50, 25)));
@@ -110,7 +114,10 @@ namespace TriggerDiscipline
             //proportionFac = dialogScale.X / dialogScale.Y;
         }
 
-
+        public void Compute()
+        {
+            throw new NotImplementedException();
+        }
 
         public void Intro()
         {
@@ -154,6 +161,8 @@ namespace TriggerDiscipline
                     break;
                 case IObject.ObjectState.LOOP:
                     //UpdateAnimation(animCounter % 360);
+                    Canvas.SetTop(boxRect, center.Y - targetSize.Y / 2);
+                    Canvas.SetLeft(boxRect, center.X - targetSize.X / 2);
                     break;
                 case IObject.ObjectState.OUTRO:
                     Outro();

@@ -8,11 +8,21 @@
             LOOP,
             OUTRO
         }
-        public void Intro();
+        public void Compute();
 
         public void Update();
-
-        public void Outro();
     }
 
+    public class UIGeneric : IObject
+    {
+        public void Compute()
+        {
+            throw new System.NotImplementedException();
+        }
+
+        public void Update()
+        {
+            throw new System.NotImplementedException();
+        }
+    }
 }
