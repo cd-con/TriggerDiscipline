@@ -1,5 +1,4 @@
-﻿using System;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Media;
 
 namespace TriggerDiscipline
@@ -11,6 +10,12 @@ namespace TriggerDiscipline
 
         public static bool isInCircle(this Point from, Point source, float diam) => from.DistanceTo(source) <= diam;
 
+        public static bool isInSquare(this Point from, Point origin, int h, int w)
+        {
+            Point topLeft = new Point(origin.X - (h / 2), origin.Y - (w / 2));
+            Point bottomRight = new Point(origin.X + (h / 2), origin.Y + (w / 2));
+            return from.Y > topLeft.Y && from.Y < bottomRight.Y && from.X > topLeft.X && from.X < bottomRight.X;
+        }
         public static PointCollection ShiftSum(this PointCollection source, Point shift)
         {
             PointCollection sauce = new();

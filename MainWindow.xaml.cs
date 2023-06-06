@@ -37,7 +37,7 @@ namespace TriggerDiscipline
         public static Point windowSize;
 
         public static Canvas canvasRef;
-        public static Label debuggerRef;
+        public static Label accuracyRef;
 
         SoundManager manager = new();
         TriggerDotController dotCtrl = new();
@@ -45,17 +45,18 @@ namespace TriggerDiscipline
         public long frameCounter = 0;
         public int score = 0;
         public double accuracy = 100;
+        private int clickCount;
         public int lives = 1000;
 
         Line timerLine;
-        CanvasMessageBox gameOverBox;
+        Dialog? newGameOver;
 
         public MainWindow()
         {
             InitializeComponent();
 
             canvasRef = MainCanvas;
-            debuggerRef = Accuracy;
+            accuracyRef = Accuracy;
 
             MainCanvas.Children.Add(debugEl);
 
@@ -81,7 +82,7 @@ namespace TriggerDiscipline
 
             Dispatcher.Invoke(() =>
             {
-                gameOverBox = new(new(windowSize.Y / 2, windowSize.X / 2), new(200, 200));
+                /*gameOverBox = new(, new(200, 200));
 
                 gameOverBox.state = IObject.ObjectState.OUTRO; // Сбрасываем состояние окна, чтобы изначально не отображалось
                 gameOverBox.Update();
@@ -89,7 +90,7 @@ namespace TriggerDiscipline
                 foreach (CanvasButton btn in gameOverBox.buttons)
                 {
                     MainCanvas.Children.Add(btn.buttonRect);
-                }
+                }*/
 
                 timerLine = new Line { Stroke = new SolidColorBrush() { Color = Colors.White }, StrokeThickness = 15 };
                 timerLine.X1 = 0;
@@ -111,14 +112,17 @@ namespace TriggerDiscipline
                         {
                             Dispatcher.Invoke(() =>
                             {
+                                //accuracyRef.Content = $"Acc.:{(clickCount + 1) / (score + 1) * 100.0}%";
                                 timerLine.X2 = (windowSize.Y / 1000) * lives;
                                 dotCtrl.Update();
                                 lives -= 2 * dotCtrl.difficulty;
 
                                 if (lives <= 0)
                                 {
+
+                                    newGameOver = new Dialog(new(windowSize.Y / 2, windowSize.X / 2), 200, 200);
+                                    newGameOver.ShowElement();
                                     state = GameState.GAME_END;
-                                    gameOverBox.state = IObject.ObjectState.INTRO;
                                 }
                             });
                         }
@@ -127,15 +131,17 @@ namespace TriggerDiscipline
                         {
                             Dispatcher.Invoke(() =>
                             {
-                                gameOverBox.center = new(windowSize.Y / 2, windowSize.X / 2);
-                                gameOverBox.Update();
-                                foreach (CanvasButton btn in gameOverBox.buttons)
+                                newGameOver?.Update();
+                                //gameOverBox.center = new(windowSize.Y / 2, windowSize.X / 2);
+                                //gameOverBox.Update();
+                                /*foreach (CanvasButton btn in gameOverBox.buttons)
                                 {
                                     btn.Update();
-                                }
+                                }*/
                             });
                         }
 
+                        
                         updateTimer.Restart();
                     }
                 }
@@ -155,12 +161,14 @@ namespace TriggerDiscipline
             {
                 if (state == GameState.GAME_LOOP)
                 {
+                    clickCount++;
                     dotCtrl.Click(p);
                 }
                 if (state == GameState.GAME_END)
                 {
-                    foreach (CanvasButton button in gameOverBox.buttons)
+                    /*foreach (CanvasButton button in gameOverBox.buttons)
                     {
+                        
                         if (button.Click(p))
                         {
                             gameOverBox.state = IObject.ObjectState.OUTRO;
@@ -168,7 +176,7 @@ namespace TriggerDiscipline
                             manager.clickPlayer.Play();
                             RestartGame();
                         }
-                    }
+                    }*/
                 }
             }
         }
@@ -186,10 +194,10 @@ namespace TriggerDiscipline
             Canvas.SetZIndex(debugEl, 100);
             if (state == GameState.GAME_END)
             {
-                foreach (CanvasButton button in gameOverBox.buttons)
+                /*foreach (CanvasButton button in gameOverBox.buttons)
                 {
                     button.hovered = button.Click(p);
-                }
+                }*/
             }
         }
 

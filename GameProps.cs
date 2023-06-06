@@ -4,27 +4,22 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using System.Windows.Media.Media3D;
 using System.Windows.Shapes;
-using static System.Formats.Asn1.AsnWriter;
 
 namespace TriggerDiscipline
 {
     public class TriggerDotController : IObject
     {
         public int frameCounter;
-        public List<TriggerDot> dotStorage = new List<TriggerDot>();
-        public List<TriggerDot> deathQueue = new List<TriggerDot>();
-        public List<Point> clickQueue = new List<Point>();
+        public List<TriggerDot> dotStorage = new();
+        public List<TriggerDot> deathQueue = new();
+        public List<Point> clickQueue = new();
 
-        public Action clickSuccseedAction;
+        public Action? clickSuccseedAction;
 
         public int difficulty = 1;
 
-        public TriggerDotController()
-        {
-            Compute();
-        }
+        public TriggerDotController() => Compute();
 
         private PointCollection[] introAnimation = new PointCollection[32]; 
         private PointCollection[] loopAnimation = new PointCollection[360];
@@ -55,13 +50,11 @@ namespace TriggerDiscipline
             {
                 foreach (TriggerDot dot in dotStorage)
                 {
-                    MainWindow.debuggerRef.Content = clickPoint.DistanceTo(dot.center);
                     if (clickPoint.isInCircle(dot.center, 900))
                     {
                         deathQueue.Add(dot);
 
-                        if (clickSuccseedAction != null)
-                            clickSuccseedAction.Invoke();
+                        clickSuccseedAction?.Invoke();
                     }
                 }
             }
@@ -115,9 +108,9 @@ namespace TriggerDiscipline
             deathQueue = dotStorage;
         }
 
-        private PointCollection BakeFrame(float angle, float diam)
+        private static PointCollection BakeFrame(float angle, float diam)
         {
-            PointCollection frame = new PointCollection();
+            PointCollection frame = new();
 
             for (int vertex = 0; vertex <= 6; vertex++)
             {
@@ -131,20 +124,26 @@ namespace TriggerDiscipline
         {
             return frame < 32 ? introAnimation[frame] : loopAnimation[frame % loopAnimation.Length];
         }
+
+        public void FixedUpdate()
+        {
+            // Временно не используется
+            throw new NotImplementedException();
+        }
     }
 
     public class TriggerDot : IObject
     {
-        private TriggerDotController parent;
+        private readonly TriggerDotController parent;
         public Polygon poly;
         public Ellipse timeLeftCircle;
         public Point center;
 
-        private int timeLeftInit = 107;
+        private readonly int timeLeftInit = 107;
         public int timeLeft;
         
-        private SolidColorBrush polyBrush = new() { Color = Colors.White };
-        private SolidColorBrush circleBrush = new() { Color = Color.FromArgb(64, 255, 255, 255) };
+        private readonly SolidColorBrush polyBrush = new() { Color = Colors.White };
+        private readonly SolidColorBrush circleBrush = new() { Color = Color.FromArgb(64, 255, 255, 255) };
 
         public TriggerDot(TriggerDotController storageReference, Point position) {
             parent = storageReference;
@@ -158,7 +157,7 @@ namespace TriggerDiscipline
 
         public void Compute()
         {
-            // No computing today
+            
         }
 
         public void Update()
@@ -178,6 +177,12 @@ namespace TriggerDiscipline
                 SoundManager.instance.missPlayer.Play();
                 parent.Destroy(this);
             }
+        }
+
+        public void FixedUpdate()
+        {
+            // Не используется
+            throw new NotImplementedException();
         }
     }
 }
