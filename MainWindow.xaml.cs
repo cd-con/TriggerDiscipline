@@ -72,11 +72,12 @@ namespace TriggerDiscipline
 
         public void Setup()
         {
-            newGameOver = new Dialog(new(windowSize.X / 8, windowSize.Y / 8), 100, 100);
+            // 💀💀💀
+            /*newGameOver = new Dialog(new(windowSize.X / 8, windowSize.Y / 8), 100, 100);
             Button restart = new Button(new(25, 0), 100, 50);
             restart.onClick = RestartGame;
             newGameOver.children.Add(restart);
-            newGameOver.Update();
+            newGameOver.Update();*/
 
             timerLine = new Line { Stroke = new SolidColorBrush() { Color = Colors.White }, StrokeThickness = 15 };
             timerLine.X1 = 0;
@@ -94,7 +95,8 @@ namespace TriggerDiscipline
             {
                 lives += lives < 1000 ? 125 - (dotCtrl.difficulty * 5) : 0;
                 manager.clickPlayer.Play();
-                Score.Content = $"Score: {++score}";
+                accuracy = Math.Abs(((score + 1) / (float)(dotCtrl.spawnCounter - score)) * 100);
+                Score.Content = $"Score: {score += 1 * (int)accuracy}";
             };
 
             Dispatcher.Invoke(Setup);
@@ -111,14 +113,16 @@ namespace TriggerDiscipline
                         {
                             Dispatcher.Invoke(() =>
                             {
-                                //accuracyRef.Content = $"Acc.:{(clickCount + 1) / (score + 1) * 100.0}%";
+                                
                                 timerLine.X2 = (windowSize.Y / 1000) * lives;
                                 dotCtrl.Update();
+                                
+                                accuracyRef.Content = $"Bonus:{accuracy}X";
                                 lives -= 2 * dotCtrl.difficulty;
 
                                 if (lives <= 0)
                                 {
-                                    newGameOver.ShowElement();
+                                    //newGameOver.ShowElement();
                                     state = GameState.GAME_END;
                                 }
                             });
@@ -128,7 +132,9 @@ namespace TriggerDiscipline
                         {
                             Dispatcher.Invoke(() =>
                             {
-                                newGameOver.elementCenter = new(windowSize.X / 2, windowSize.Y / 2);
+                                MessageBox.Show($"Looser! Score: {score}");
+                                RestartGame();
+                                /*newGameOver.elementCenter = new(windowSize.X / 2, windowSize.Y / 2);
 
                                 foreach (GenericInterfaceElement element in newGameOver.children)
                                 {
@@ -139,7 +145,7 @@ namespace TriggerDiscipline
                                 
                                 newGameOver.width = (int)windowSize.Y - 70;
                                 newGameOver.height = (int)windowSize.X - 70;
-                                newGameOver.Update();
+                                newGameOver.Update();*/
                             });
                         }
 
@@ -206,6 +212,8 @@ namespace TriggerDiscipline
         {
             dotCtrl.Clear();
             dotCtrl.difficulty = 1;
+            clickCount = 0;
+            dotCtrl.spawnCounter = 0;
             dotCtrl.frameCounter = 0;
             score = 0;
             lives = 1000;

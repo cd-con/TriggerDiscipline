@@ -11,6 +11,7 @@ namespace TriggerDiscipline
     public class TriggerDotController : IObject
     {
         public int frameCounter;
+        public int spawnCounter = 0;
         public List<TriggerDot> dotStorage = new();
         public List<TriggerDot> deathQueue = new();
         public List<Point> clickQueue = new();
@@ -52,6 +53,8 @@ namespace TriggerDiscipline
                 {
                     if (clickPoint.isInCircle(dot.center, 900))
                     {
+                        
+
                         deathQueue.Add(dot);
 
                         clickSuccseedAction?.Invoke();
@@ -79,14 +82,14 @@ namespace TriggerDiscipline
             {
                 try
                 {
+                    spawnCounter++;
                     TriggerDot newDot = new(this, new(App.globalRandom.Next(100, (int)MainWindow.windowSize.Y - 100), App.globalRandom.Next(100, (int)MainWindow.windowSize.X - 100)));
                     MainWindow.canvasRef.Children.Add(newDot.poly);
                     MainWindow.canvasRef.Children.Add(newDot.timeLeftCircle);
                     dotStorage.Add(newDot);
                 }catch (ArgumentOutOfRangeException)
                 {
-                    MessageBox.Show("Trying to cheat?");
-                    
+                    MessageBox.Show("Trying to cheat?");                    
                 }
             }
 
@@ -95,7 +98,7 @@ namespace TriggerDiscipline
                 dot.Update();
             }
 
-            difficulty = (int)(frameCounter / 500f) + 1;
+            difficulty = (int)(frameCounter / 750f) + 1;
 
             frameCounter++;
         }
